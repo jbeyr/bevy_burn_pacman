@@ -20,9 +20,15 @@ use crate::GameState;
 #[derive(Debug, Resource, Default)]
 pub struct Score(pub u32);
 
-/// Remaining extra lives.
-#[derive(Debug, Resource, Default)]
+/// Remaining extra lives. Starts at three per session.
+#[derive(Debug, Resource)]
 pub struct Lives(pub u32);
+
+impl Default for Lives {
+    fn default() -> Self {
+        Self(3)
+    }
+}
 
 /// Best score this session.
 #[derive(Debug, Resource, Default)]
