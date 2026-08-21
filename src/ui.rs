@@ -10,7 +10,9 @@
 use bevy::prelude::*;
 use bevy::text::FontSize;
 
-use crate::events::{GhostCollisionEvent, LevelClearedEvent, PelletEatenEvent, PowerPelletEatenEvent};
+use crate::events::{
+    GhostCollisionEvent, LifeLostEvent, LevelClearedEvent, PelletEatenEvent, PowerPelletEatenEvent,
+};
 use crate::ghosts::{Ghost, GhostMode};
 use crate::maze::PelletMap;
 use crate::GameState;
@@ -199,17 +201,36 @@ fn on_power_pellet(_trigger: On<PowerPelletEatenEvent>, mut score: ResMut<Score>
 
 fn on_ghost_collision(
     trigger: On<GhostCollisionEvent>,
-    ghost_q: Query<&Ghost>,
+    mut ghost_q: Query<&mut Ghost>,
+    mut score: ResMut<Score>,
     mut lives: ResMut<Lives>,
+    mut commands: Commands,
 ) {
     let ghost_entity = trigger.event().ghost;
-    let Ok(ghost) = ghost_q.get(ghost_entity) else {
-        return;
+
+    // Frightened: Pac-Man eats the ghost — bonus points, back to the house.
+    let eaten = {
+        let Ok(mut ghost) = ghost_q.get_mut(ghost_entity) else {
+            return;
+        };
+        if matches!(ghost.mode, GhostMode::Frightened { .. }) {
+            let house = crate::maze::MazeGrid::default().ghost_spawn();
+            ghost.pos = house;
+            ghost.mode = GhostMode::Chase;
+            true
+        } else {
+            false
+        }
     };
-    if matches!(ghost.mode, GhostMode::Frightened { .. }) {
-        return; // eating ghosts is a bonus, not a death
+
+    if eaten {
+        score.0 += 200;
+        return;
     }
+
+    // Lethal: lose a life, reset positions, brief grace period.
     if lives.0 > 0 {
         lives.0 -= 1;
+        commands.trigger(LifeLostEvent);
     }
 }

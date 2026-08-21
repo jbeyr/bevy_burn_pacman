@@ -190,6 +190,10 @@ pub enum PelletKind {
 ///
 /// `remaining() == 0` means the level is cleared. The default value is an
 /// empty board; build the real board with [`PelletMap::from_maze`].
+/// Maps pellet tiles to their sprite entities so eating can despawn them.
+#[derive(Resource, Debug, Default)]
+pub struct FoodEntities(pub std::collections::HashMap<IVec2, Entity>);
+
 #[derive(Resource, Debug, Default)]
 pub struct PelletMap {
     /// Remaining dot pellet positions.
@@ -282,7 +286,12 @@ impl PelletMap {
 /// Run once per level, e.g. from `OnEnter(GameState::Playing)` or at startup.
 /// All spawned entities are `StateScoped(GameState::Playing)`, so leaving the
 /// playing state removes them automatically.
-pub fn spawn_maze(mut commands: Commands, grid: Res<MazeGrid>) {
+pub fn spawn_maze(
+    mut commands: Commands,
+    grid: Res<MazeGrid>,
+    mut food: ResMut<FoodEntities>,
+) {
+    food.0.clear();
     for y in 0..HEIGHT {
         for x in 0..WIDTH {
             let pos = IVec2::new(x as i32, y as i32);
@@ -299,22 +308,26 @@ pub fn spawn_maze(mut commands: Commands, grid: Res<MazeGrid>) {
     let pellets = PelletMap::from_maze(&grid);
     for &pos in &pellets.pellets {
         let world = grid.world_pos(pos);
-        commands.spawn((
-            Sprite::from_color(PELLET_COLOR, Vec2::splat(TILE_SIZE * PELLET_SCALE)),
-            Transform::from_xyz(world.x, world.y, Z_PELLET),
-            
-        ));
+        let entity = commands
+            .spawn((
+                Sprite::from_color(PELLET_COLOR, Vec2::splat(TILE_SIZE * PELLET_SCALE)),
+                Transform::from_xyz(world.x, world.y, Z_PELLET),
+            ))
+            .id();
+        food.0.insert(pos, entity);
     }
     for &pos in &pellets.power {
         let world = grid.world_pos(pos);
-        commands.spawn((
-            Sprite::from_color(
-                POWER_PELLET_COLOR,
-                Vec2::splat(TILE_SIZE * POWER_PELLET_SCALE),
-            ),
-            Transform::from_xyz(world.x, world.y, Z_POWER_PELLET),
-            
-        ));
+        let entity = commands
+            .spawn((
+                Sprite::from_color(
+                    POWER_PELLET_COLOR,
+                    Vec2::splat(TILE_SIZE * POWER_PELLET_SCALE),
+                ),
+                Transform::from_xyz(world.x, world.y, Z_POWER_PELLET),
+            ))
+            .id();
+        food.0.insert(pos, entity);
     }
     commands.insert_resource(pellets);
 }

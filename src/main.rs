@@ -107,6 +107,8 @@ fn main() {
         .add_plugins(autopilot::AutopilotPlugin { checkpoint: std::path::PathBuf::from(&args.model) })
         .insert_resource(GameSession::new(0))
         .add_observer(ghosts::frighten_all)
+        .add_observer(pacman::on_life_lost_reset)
+        .add_observer(ghosts::on_life_lost_reset)
         .add_systems(
             Update,
             (

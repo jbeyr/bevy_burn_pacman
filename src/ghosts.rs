@@ -14,7 +14,7 @@
 use bevy::prelude::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
-use crate::events::{Direction, PowerPelletEatenEvent};
+use crate::events::{Direction, LifeLostEvent, PowerPelletEatenEvent};
 use crate::maze::{MazeGrid, PelletMap, HEIGHT, TILE_SIZE};
 use crate::pacman::Player;
 
@@ -294,5 +294,18 @@ pub fn update_mode_timers(time: Res<Time>, mut ghost_q: Query<&mut Ghost>) {
         if finished {
             ghost.mode = GhostMode::Chase;
         }
+    }
+}
+/// Observer: on life loss, returns every ghost to the house in chase mode.
+pub fn on_life_lost_reset(
+    _trigger: On<LifeLostEvent>,
+    grid: Res<MazeGrid>,
+    mut ghost_q: Query<&mut Ghost>,
+) {
+    let house = grid.ghost_spawn();
+    for mut ghost in &mut ghost_q {
+        ghost.pos = house;
+        ghost.dir = Direction::Left;
+        ghost.mode = GhostMode::Chase;
     }
 }

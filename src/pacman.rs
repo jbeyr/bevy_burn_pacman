@@ -13,9 +13,11 @@
 #![allow(dead_code)]
 #![allow(clippy::needless_pass_by_value)]
 
-use crate::events::{Direction, GhostCollisionEvent, PelletEatenEvent, PowerPelletEatenEvent};
+use crate::events::{
+    Direction, GhostCollisionEvent, LifeLostEvent, PelletEatenEvent, PowerPelletEatenEvent,
+};
 use crate::ghosts::Ghost;
-use crate::maze::{MazeGrid, PelletKind, PelletMap, TILE_SIZE};
+use crate::maze::{FoodEntities, MazeGrid, PelletKind, PelletMap, TILE_SIZE};
 use bevy::prelude::*;
 
 /// Seconds between player grid steps.
@@ -122,6 +124,7 @@ pub fn player_movement(
     time: Res<Time>,
     grid: Res<MazeGrid>,
     mut pellets: ResMut<PelletMap>,
+    food: Res<FoodEntities>,
     mut query: Query<(Entity, &mut Player, &mut MoveTimer, &mut Transform)>,
     mut commands: Commands,
 ) {
@@ -136,7 +139,7 @@ pub fn player_movement(
     {
         player.dir = heading;
         player.pos = next;
-        eat_at(&mut pellets, &mut commands, entity, next);
+        eat_at(&mut pellets, &food, &mut commands, entity, next);
     }
 
     let world = grid.world_pos(player.pos);
@@ -171,7 +174,16 @@ fn resolve_step(
 }
 
 /// Removes any food at `pos`, firing the matching event for observers.
-fn eat_at(pellets: &mut PelletMap, commands: &mut Commands, _player: Entity, pos: IVec2) {
+fn eat_at(
+    pellets: &mut PelletMap,
+    food: &FoodEntities,
+    commands: &mut Commands,
+    _player: Entity,
+    pos: IVec2,
+) {
+    if let Some(entity) = food.0.get(&pos) {
+        commands.entity(*entity).despawn();
+    }
     match pellets.eat(pos) {
         Some(PelletKind::Power) => {
             commands.trigger(PowerPelletEatenEvent { pos });
@@ -203,6 +215,21 @@ pub fn check_ghost_collision(
             });
         }
     }
+}
+
+
+/// Observer: on life loss, returns Pac-Man to his spawn tile.
+pub fn on_life_lost_reset(
+    _trigger: On<LifeLostEvent>,
+    grid: Res<MazeGrid>,
+    mut player_q: Query<&mut Player, Without<crate::ghosts::Ghost>>,
+) {
+    let Ok(mut player) = player_q.single_mut() else {
+        return;
+    };
+    player.pos = grid.pacman_spawn();
+    player.dir = Direction::Left;
+    player.queued = None;
 }
 
 #[cfg(test)]
