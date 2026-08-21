@@ -63,6 +63,7 @@ pub struct CliArgs {
     pub model: String,
 }
 
+
 fn main() {
     let args = CliArgs::parse();
 
@@ -87,14 +88,7 @@ fn main() {
         .insert_resource(maze::PelletMap::default())
         .insert_resource(ClearColor(Color::srgb(0.02, 0.02, 0.05)))
         .add_systems(Startup, spawn_camera)
-        .add_systems(
-            OnEnter(GameState::Playing),
-            (
-                maze::spawn_maze,
-                pacman::spawn_player,
-                ghosts::spawn_ghosts,
-            ),
-        )
+        .add_systems(Startup, (maze::spawn_maze, pacman::spawn_player, ghosts::spawn_ghosts))
         .add_systems(
             Update,
             (

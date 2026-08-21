@@ -8,7 +8,6 @@
 #![allow(clippy::needless_pass_by_value)]
 
 use bevy::prelude::*;
-use bevy::state::state_scoped::DespawnOnExit as StateScoped;
 use bevy::text::FontSize;
 
 use crate::events::{GhostCollisionEvent, LevelClearedEvent, PelletEatenEvent, PowerPelletEatenEvent};
@@ -54,7 +53,7 @@ impl Plugin for UiPlugin {
         app.init_resource::<Score>()
             .init_resource::<Lives>()
             .init_resource::<HighScore>()
-            .add_systems(OnEnter(GameState::Playing), setup_hud)
+            .add_systems(Startup, setup_hud)
             .add_systems(
                 Update,
                 (update_hud_text, update_overlays).run_if(in_state(GameState::Playing)),
@@ -78,7 +77,6 @@ fn setup_hud(mut commands: Commands) {
                 padding: UiRect::new(Val::Px(16.0), Val::Px(16.0), Val::Px(0.0), Val::Px(0.0)),
                 ..default()
             },
-            StateScoped(GameState::Playing),
         ))
         .with_children(|bar| {
             bar.spawn((
@@ -106,7 +104,6 @@ fn setup_hud(mut commands: Commands) {
             ..default()
         },
         Visibility::Hidden,
-        StateScoped(GameState::Playing),
         GameOverOverlay,
     ))
     .with_children(|overlay| {
@@ -128,7 +125,6 @@ fn setup_hud(mut commands: Commands) {
             ..default()
         },
         Visibility::Hidden,
-        StateScoped(GameState::Playing),
         WinOverlay,
     ))
     .with_children(|overlay| {

@@ -9,9 +9,7 @@
 
 #![allow(dead_code)]
 
-use crate::GameState;
 use bevy::prelude::*;
-use bevy::state::state_scoped::DespawnOnExit as StateScoped;
 use std::collections::HashSet;
 
 // Rendering constants and some accessors await the DQN/AI phase.
@@ -277,7 +275,7 @@ pub fn spawn_maze(mut commands: Commands, grid: Res<MazeGrid>) {
                 commands.spawn((
                     Sprite::from_color(WALL_COLOR, Vec2::splat(TILE_SIZE)),
                     Transform::from_xyz(world.x, world.y, Z_WALL),
-                    StateScoped(GameState::Playing),
+                    
                 ));
             }
         }
@@ -288,7 +286,7 @@ pub fn spawn_maze(mut commands: Commands, grid: Res<MazeGrid>) {
         commands.spawn((
             Sprite::from_color(PELLET_COLOR, Vec2::splat(TILE_SIZE * PELLET_SCALE)),
             Transform::from_xyz(world.x, world.y, Z_PELLET),
-            StateScoped(GameState::Playing),
+            
         ));
     }
     for &pos in &pellets.power {
@@ -299,7 +297,7 @@ pub fn spawn_maze(mut commands: Commands, grid: Res<MazeGrid>) {
                 Vec2::splat(TILE_SIZE * POWER_PELLET_SCALE),
             ),
             Transform::from_xyz(world.x, world.y, Z_POWER_PELLET),
-            StateScoped(GameState::Playing),
+            
         ));
     }
     commands.insert_resource(pellets);
