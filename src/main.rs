@@ -88,6 +88,7 @@ fn main() {
         }))
         .init_state::<GameState>()
         .init_resource::<maze::MazeGrid>()
+        .init_resource::<maze::FoodEntities>()
         .insert_resource(maze::PelletMap::default())
         .insert_resource(ClearColor(Color::srgb(0.02, 0.02, 0.05)))
         .add_systems(Startup, spawn_camera)
