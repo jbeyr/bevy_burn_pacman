@@ -253,6 +253,22 @@ impl PelletMap {
         self.power.len()
     }
 
+    /// Whether any food (dot or power) remains at `pos`.
+    #[must_use]
+    #[inline]
+    pub fn has_food(&self, pos: IVec2) -> bool {
+        self.pellets.contains(&pos) || self.power.contains(&pos)
+    }
+
+    /// Total food items that existed when the level started.
+    ///
+    /// The caller snapshots `remaining()` right after [`PelletMap::from_maze`];
+    /// this helper exists for symmetry with `remaining`.
+    #[must_use]
+    pub fn total_initial(grid: &MazeGrid) -> usize {
+        PelletMap::from_maze(grid).remaining()
+    }
+
     /// Empties the board, e.g. when a level is cleared or reset.
     pub fn clear_level(&mut self) {
         self.pellets.clear();

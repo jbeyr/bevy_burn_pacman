@@ -7,6 +7,7 @@
 #![allow(clippy::needless_pass_by_value)]
 
 mod agent;
+mod autopilot;
 mod events;
 mod ghosts;
 mod headless_env;
@@ -103,6 +104,7 @@ fn main() {
                 .run_if(in_state(GameState::Playing)),
         )
         .add_plugins(ui::UiPlugin)
+        .add_plugins(autopilot::AutopilotPlugin { checkpoint: std::path::PathBuf::from(&args.model) })
         .insert_resource(GameSession::new(0))
         .add_observer(ghosts::frighten_all)
         .add_systems(
