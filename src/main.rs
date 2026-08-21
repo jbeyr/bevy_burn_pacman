@@ -6,8 +6,10 @@
 #![allow(dead_code)]
 #![allow(clippy::needless_pass_by_value)]
 
+mod agent;
 mod events;
 mod ghosts;
+mod headless_env;
 mod maze;
 mod pacman;
 mod ui;
@@ -65,10 +67,7 @@ fn main() {
     let args = CliArgs::parse();
 
     if args.headless {
-        // Training pipeline lands with the DQN milestone; the game core is
-        // exercised here via a deterministic smoke run until then.
-        println!("Headless training not yet wired — running game-core self-check.");
-        run_game_self_check();
+        run_headless_training(&args);
         return;
     }
 
@@ -149,7 +148,98 @@ fn handle_life_loss(lives: Res<ui::Lives>, mut next_state: ResMut<NextState<Game
     }
 }
 
-/// Placeholder headless path exercising maze parsing + movement logic tests.
-fn run_game_self_check() {
-    println!("Maze parses cleanly; {} unit tests cover grid/pellets/movement.", 23);
+/// High-throughput headless Double DQN training against scripted ghosts.
+fn run_headless_training(args: &CliArgs) {
+    use agent::{DoubleDqnAgent, ReplayBuffer, Transition};
+    use burn::backend::Autodiff;
+    use burn::backend::ndarray::NdArray;
+    use headless_env::{OBS_DIM, PacEnv};
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
+    use std::time::Instant;
+
+    type AutodiffNdArray = Autodiff<NdArray<f32>>;
+
+    println!(
+        "Pac-Man Lite training: {} episodes | horizon {} steps | obs dim {OBS_DIM} | actions 4",
+        args.episodes, 600
+    );
+
+    let start = Instant::now();
+    let device = burn::backend::ndarray::NdArrayDevice::default();
+    let mut agent =
+        DoubleDqnAgent::<AutodiffNdArray>::new(device, 0.99);
+    let mut buffer = ReplayBuffer::new(50_000);
+    let mut rng = StdRng::seed_from_u64(0x00C0_FFEE);
+    let mut env = PacEnv::new();
+
+    let batch_size = 64usize;
+    let lr = 5.0e-4_f64;
+    let gamma_decay = 0.995_f32;
+    let mut epsilon = 1.0_f32;
+    let min_epsilon = 0.05_f32;
+
+    let mut obs = [0.0f32; OBS_DIM];
+    let mut next_obs = [0.0f32; OBS_DIM];
+
+    let mut global_step = 0u64;
+    let mut interval_steps = 0u64;
+    let mut interval_start = Instant::now();
+
+    for ep in 1..=args.episodes {
+        env.reset();
+
+        while !env.is_done() {
+            env.get_observation(&mut obs);
+            let action_idx = agent.select_action(&obs, epsilon, &mut rng);
+            let action = headless_env::Action::wrap_index(action_idx);
+            let (reward, done) = env.step(action);
+            env.get_observation(&mut next_obs);
+
+            buffer.push(Transition {
+                state: obs,
+                action: action_idx,
+                reward,
+                next_state: next_obs,
+                done,
+            });
+
+            if global_step.is_multiple_of(4) && buffer.len() >= batch_size {
+                let batch = buffer.sample(batch_size, &mut rng);
+                let _ = agent.train_step(&batch, lr);
+            }
+            if global_step.is_multiple_of(100) {
+                agent.sync_target();
+            }
+            global_step += 1;
+            interval_steps += 1;
+        }
+
+        epsilon = (epsilon * gamma_decay).max(min_epsilon);
+
+        if ep % 50 == 0 || ep == args.episodes {
+            let secs = interval_start.elapsed().as_secs_f32().max(0.0001);
+            let eps_per_sec = if ep.is_multiple_of(50) { 50.0 } else { (ep % 50) as f32 } / secs;
+            let sps = interval_steps as f32 / secs;
+            println!(
+                "Ep {:5}/{} | eps {:.3} | SPS {:5.0} | EPS {:4.1} | score {}",
+                ep,
+                args.episodes,
+                epsilon,
+                sps,
+                eps_per_sec,
+                env.score
+            );
+            interval_steps = 0;
+            interval_start = Instant::now();
+        }
+    }
+
+    let total = start.elapsed();
+    println!("Training complete in {total:.1?}");
+
+    match agent.save_checkpoint(std::path::Path::new(&args.save)) {
+        Ok(()) => println!("Saved policy to {}", args.save),
+        Err(e) => println!("Failed to save checkpoint: {e:?}"),
+    }
 }
